@@ -8,3 +8,5 @@ authors = ["lawff<evilllawliet@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.82"
+enum_dispatch = "0.3.13"
