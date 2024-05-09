@@ -189,9 +189,7 @@ impl RespDecode for RespArray {
 
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
         let (end, len) = parse_length(buf, Self::PREFIX)?;
-        println!("end: {}, len: {}", end, len);
         let total = calc_total_length(buf, end, len, Self::PREFIX)?;
-        println!("total: {}", total);
         if buf.len() < total {
             return Err(RespError::NotComplete);
         }
