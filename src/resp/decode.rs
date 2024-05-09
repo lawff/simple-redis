@@ -78,6 +78,7 @@ impl RespDecode for RespFrame {
                 let frame = RespSet::decode(buf)?;
                 Ok(frame.into())
             }
+            None => Err(RespError::NotComplete),
             _ => Err(RespError::InvalidFrameType(format!(
                 "decode: unknown frame type: {:?}",
                 String::from_utf8_lossy(buf)
