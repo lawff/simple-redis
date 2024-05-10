@@ -6,6 +6,11 @@ use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
 
+// use once_cell::sync::Lazy;
+
+// static RESP_OK: Lazy<RespFrame> = Lazy::new(|| {
+//     SimpleString::new("OK").into()
+// });
 lazy_static! {
     static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
 }
