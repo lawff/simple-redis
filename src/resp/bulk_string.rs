@@ -78,6 +78,18 @@ impl BulkString {
     }
 }
 
+impl From<&str> for BulkString {
+    fn from(value: &str) -> Self {
+        BulkString(value.as_bytes().to_vec())
+    }
+}
+
+impl From<String> for BulkString {
+    fn from(value: String) -> Self {
+        BulkString(value.into_bytes())
+    }
+}
+
 impl<const N: usize> From<&[u8; N]> for BulkString {
     fn from(s: &[u8; N]) -> Self {
         BulkString(s.to_vec())
