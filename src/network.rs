@@ -6,13 +6,12 @@ use tracing::info;
 
 use crate::{
     cmd::{Command, CommandExecutor},
-    Backend, RespDecode, RespEncode, RespError, RespFrame,
+    Backend, RespDecode, RespEncode, RespError, RespFrame, SimpleError,
 };
 
 #[derive(Debug)]
 struct RespFrameCodec;
 
-#[derive(Debug)]
 struct RedisRequest {
     frame: RespFrame,
     backend: Backend,
@@ -45,10 +44,19 @@ pub async fn stream_handler(stream: TcpStream, backend: Backend) -> anyhow::Resu
 
 async fn request_handler(request: RedisRequest) -> anyhow::Result<RedisResponse> {
     let (frame, backend) = (request.frame, request.backend);
-    let cmd = Command::try_from(frame)?;
-    info!("Executing command: {:?}", cmd);
-    let response = cmd.execute(&backend);
-    Ok(RedisResponse { frame: response })
+    match Command::try_from(frame) {
+        Ok(cmd) => {
+            info!("Executing command: {:?}", cmd);
+            let response = cmd.execute(&backend);
+            Ok(RedisResponse { frame: response })
+        }
+        Err(e) => {
+            info!("Command::try_from error: {:?}", e);
+            Ok(RedisResponse {
+                frame: SimpleError::from(e).into(),
+            })
+        }
+    }
 }
 
 impl Encoder<RespFrame> for RespFrameCodec {
@@ -56,6 +64,7 @@ impl Encoder<RespFrame> for RespFrameCodec {
 
     fn encode(&mut self, item: RespFrame, dst: &mut bytes::BytesMut) -> Result<(), Self::Error> {
         let encoded = item.encode();
+        info!("Encoded frame: {:?}", String::from_utf8_lossy(&encoded));
         dst.extend_from_slice(&encoded);
         Ok(())
     }

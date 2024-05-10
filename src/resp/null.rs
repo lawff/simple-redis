@@ -4,7 +4,7 @@ use crate::{RespDecode, RespEncode, RespError};
 
 use super::extract_fixed_data;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct RespNull;
 
 // Nulls: _\r\n

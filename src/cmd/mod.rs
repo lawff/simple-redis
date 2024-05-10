@@ -1,5 +1,7 @@
 mod hmap;
 mod map;
+mod set;
+mod string;
 
 use crate::{Backend, RespArray, RespFrame, SimpleString};
 use enum_dispatch::enum_dispatch;
@@ -37,8 +39,12 @@ pub enum Command {
     Get(Get),
     Set(Set),
     HGet(HGet),
-    HSet(HSet),
+    HMGet(HMGet),
     HGetAll(HGetAll),
+    HSet(HSet),
+    ECHO(Echo),
+    SAdd(SAdd),
+    SMembers(SMembers),
     // unrecognized command
     Unrecognized(Unrecognized),
 }
@@ -61,6 +67,12 @@ pub struct HGet {
 }
 
 #[derive(Debug)]
+pub struct HMGet {
+    key: String,
+    fields: Vec<String>,
+}
+
+#[derive(Debug)]
 pub struct HSet {
     key: String,
     field: String,
@@ -71,6 +83,22 @@ pub struct HSet {
 pub struct HGetAll {
     key: String,
     sort: bool,
+}
+
+#[derive(Debug)]
+pub struct SAdd {
+    key: String,
+    values: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct SMembers {
+    key: String,
+}
+
+#[derive(Debug)]
+pub struct Echo {
+    message: String,
 }
 
 #[derive(Debug)]
@@ -100,6 +128,10 @@ impl TryFrom<RespArray> for Command {
                 b"hget" => Ok(HGet::try_from(value)?.into()),
                 b"hset" => Ok(HSet::try_from(value)?.into()),
                 b"hgetall" => Ok(HGetAll::try_from(value)?.into()),
+                b"echo" => Ok(Echo::try_from(value)?.into()),
+                b"hmget" => Ok(HMGet::try_from(value)?.into()),
+                b"sadd" => Ok(SAdd::try_from(value)?.into()),
+                b"smembers" => Ok(SMembers::try_from(value)?.into()),
                 _ => Ok(Unrecognized.into()),
             },
             _ => Err(CommandError::InvalidCommand(
@@ -119,11 +151,19 @@ fn validate_command(
     value: &RespArray,
     names: &[&'static str],
     n_args: usize,
+    more_than: bool,
 ) -> Result<(), CommandError> {
-    if value.len() != n_args + names.len() {
-        return Err(CommandError::InvalidArgument(format!(
-            "{} command Expected {} arguments, got {}",
-            names.join(" "),
+    if more_than {
+        if value.len() < names.len() + n_args {
+            return Err(CommandError::InvalidCommand(format!(
+                "Expected at least {} arguments, but get {}",
+                n_args,
+                value.len() - names.len()
+            )));
+        }
+    } else if value.len() != names.len() + n_args {
+        return Err(CommandError::InvalidCommand(format!(
+            "Expected {} arguments, but get {}",
             n_args,
             value.len() - names.len()
         )));

@@ -1,7 +1,8 @@
 use crate::{Backend, BulkString, RespArray, RespFrame, RespNull};
 
 use super::{
-    extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HSet, RESP_OK,
+    extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HMGet, HSet,
+    RESP_OK,
 };
 
 impl CommandExecutor for HGet {
@@ -10,6 +11,19 @@ impl CommandExecutor for HGet {
             Some(value) => value,
             None => RespFrame::Null(RespNull),
         }
+    }
+}
+
+impl CommandExecutor for HMGet {
+    fn execute(self, backend: &Backend) -> RespFrame {
+        let mut array = Vec::with_capacity(self.fields.len());
+        for field in self.fields.iter() {
+            match backend.hget(&self.key, field) {
+                Some(value) => array.push(value),
+                None => array.push(RespFrame::Null(RespNull)),
+            }
+        }
+        RespArray::new(array).into()
     }
 }
 
@@ -48,7 +62,7 @@ impl TryFrom<RespArray> for HGet {
     type Error = CommandError;
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["hget"], 2)?;
+        validate_command(&value, &["hget"], 2, false)?;
 
         let mut args = extract_args(value, 1)?.into_iter();
         match (args.next(), args.next()) {
@@ -63,11 +77,37 @@ impl TryFrom<RespArray> for HGet {
     }
 }
 
+impl TryFrom<RespArray> for HMGet {
+    type Error = CommandError;
+
+    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
+        validate_command(&value, &["hmget"], 2, true)?;
+
+        let mut args = extract_args(value, 1)?.into_iter();
+        // hmget key field1 field2 ...
+        match args.next() {
+            Some(RespFrame::BulkString(key)) => {
+                let fields = args
+                    .map(|f| match f {
+                        RespFrame::BulkString(f) => Ok(String::from_utf8(f.0)?),
+                        _ => Err(CommandError::InvalidArgument("Invalid field".to_string())),
+                    })
+                    .collect::<Result<Vec<String>, CommandError>>()?;
+                Ok(HMGet {
+                    key: String::from_utf8(key.0)?,
+                    fields,
+                })
+            }
+            _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
+        }
+    }
+}
+
 impl TryFrom<RespArray> for HGetAll {
     type Error = CommandError;
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["hgetall"], 1)?;
+        validate_command(&value, &["hgetall"], 1, false)?;
 
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
@@ -84,7 +124,7 @@ impl TryFrom<RespArray> for HSet {
     type Error = CommandError;
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["hset"], 3)?;
+        validate_command(&value, &["hset"], 3, false)?;
 
         let mut args = extract_args(value, 1)?.into_iter();
         match (args.next(), args.next(), args.next()) {

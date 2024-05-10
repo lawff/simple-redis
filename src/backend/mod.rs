@@ -1,16 +1,17 @@
 use std::{ops::Deref, sync::Arc};
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 
 use crate::RespFrame;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Backend(Arc<BackendInner>);
 
-#[derive(Debug)]
 pub struct BackendInner {
     map: DashMap<String, RespFrame>,
     hmap: DashMap<String, DashMap<String, RespFrame>>,
+    // RespFrame 没有eq和hash，所以不能直接用RespFrame作为set的value
+    set: DashMap<String, DashSet<String>>,
 }
 
 impl Deref for Backend {
@@ -32,6 +33,7 @@ impl Default for BackendInner {
         Self {
             map: DashMap::new(),
             hmap: DashMap::new(),
+            set: DashMap::new(),
         }
     }
 }
@@ -62,5 +64,21 @@ impl Backend {
 
     pub fn hgetall(&self, key: &str) -> Option<DashMap<String, RespFrame>> {
         self.hmap.get(key).map(|m| m.clone())
+    }
+
+    pub fn sadd(&self, key: String, value: Vec<String>) -> i64 {
+        let set = self.set.entry(key).or_default();
+
+        let mut inserted_count = 0;
+        for v in value {
+            if set.insert(v) {
+                inserted_count += 1;
+            }
+        }
+        inserted_count
+    }
+
+    pub fn smembers(&self, key: &str) -> Option<DashSet<String>> {
+        self.set.get(key).map(|s| s.clone())
     }
 }

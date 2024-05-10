@@ -9,7 +9,7 @@ use super::{calc_total_length, extract_fixed_data, parse_length, BUF_CAP, CRLF_L
 #[derive(Debug, PartialEq, Clone)]
 pub struct RespArray(pub(crate) Vec<RespFrame>);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct RespNullArray;
 
 // Arrays: *<number-of-elements>\r\n<element-1>...<element-n>

@@ -1,10 +1,10 @@
 use bytes::BytesMut;
 
-use crate::{RespDecode, RespEncode, RespError};
+use crate::{cmd::CommandError, RespDecode, RespEncode, RespError};
 
 use super::{extract_simple_frame_data, CRLF_LEN};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct SimpleError(String);
 
 impl SimpleError {
@@ -33,6 +33,18 @@ impl RespDecode for SimpleError {
     fn expect_length(buf: &[u8]) -> Result<usize, RespError> {
         let end = extract_simple_frame_data(buf, Self::PREFIX)?;
         Ok(end + CRLF_LEN)
+    }
+}
+
+impl From<String> for SimpleError {
+    fn from(value: String) -> Self {
+        SimpleError(value)
+    }
+}
+
+impl From<CommandError> for SimpleError {
+    fn from(value: CommandError) -> Self {
+        SimpleError::from(value.to_string())
     }
 }
 

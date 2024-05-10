@@ -7,7 +7,8 @@ use super::{extract_simple_frame_data, CRLF_LEN};
 //  Integers: :[<+|->]<value>\r\n
 impl RespEncode for i64 {
     fn encode(self) -> Vec<u8> {
-        format!(":{:+}\r\n", self).into_bytes()
+        // redis-cli send ":+5\r\n" => Error: Bad integer value
+        format!(":{:}\r\n", self).into_bytes()
     }
 }
 
@@ -36,7 +37,7 @@ mod tests {
     #[test]
     fn test_integer_encode() {
         let frame: RespFrame = 123.into();
-        assert_eq!(frame.encode(), b":+123\r\n");
+        assert_eq!(frame.encode(), b":123\r\n");
 
         let frame: RespFrame = (-123).into();
         assert_eq!(frame.encode(), b":-123\r\n");
