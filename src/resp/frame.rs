@@ -2,8 +2,7 @@ use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
 
 use crate::{
-    BulkString, RespArray, RespDecode, RespError, RespMap, RespNull, RespNullArray,
-    RespNullBulkString, SimpleError, SimpleString,
+    BulkString, RespArray, RespDecode, RespError, RespMap, RespNull, SimpleError, SimpleString,
 };
 
 use super::set::RespSet;
@@ -16,11 +15,9 @@ pub enum RespFrame {
     Integer(i64),
 
     BulkString(BulkString),
-    NullBulkString(RespNullBulkString),
-
+    // NullBulkString(RespNullBulkString),
     Array(RespArray),
-    NullArray(RespNullArray),
-
+    // NullArray(RespNullArray),
     Null(RespNull),
     Boolean(bool),
     Double(f64),
@@ -46,22 +43,14 @@ impl RespDecode for RespFrame {
                 let frame = i64::decode(buf)?;
                 Ok(frame.into())
             }
-            Some(b'$') => match RespNullBulkString::decode(buf) {
-                Ok(frame) => Ok(frame.into()),
-                Err(RespError::NotComplete) => Err(RespError::NotComplete),
-                Err(_) => {
-                    let frame = BulkString::decode(buf)?;
-                    Ok(frame.into())
-                }
-            },
-            Some(b'*') => match RespNullArray::decode(buf) {
-                Ok(frame) => Ok(frame.into()),
-                Err(RespError::NotComplete) => Err(RespError::NotComplete),
-                Err(_) => {
-                    let frame = RespArray::decode(buf)?;
-                    Ok(frame.into())
-                }
-            },
+            Some(b'$') => {
+                let frame = BulkString::decode(buf)?;
+                Ok(frame.into())
+            }
+            Some(b'*') => {
+                let frame = RespArray::decode(buf)?;
+                Ok(frame.into())
+            }
             Some(b'_') => {
                 let frame = RespNull::decode(buf)?;
                 Ok(frame.into())
