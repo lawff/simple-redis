@@ -23,3 +23,37 @@ impl TryFrom<RespArray> for Echo {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::RespDecode;
+
+    use super::*;
+    use anyhow::Result;
+    use bytes::BytesMut;
+
+    #[test]
+    fn test_echo_from_resp_array() -> Result<()> {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"*2\r\n$4\r\necho\r\n$5\r\nhello\r\n");
+
+        let frame = RespArray::decode(&mut buf)?;
+        let ret: Echo = frame.try_into()?;
+
+        assert_eq!(ret.message, "hello");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_echo_command() {
+        let echo = Echo {
+            message: "hello".to_string(),
+        };
+
+        let frame: RespFrame = echo.execute(&Backend::new());
+        let expected = RespFrame::BulkString(BulkString::from("hello"));
+
+        assert_eq!(frame, expected);
+    }
+}

@@ -94,6 +94,7 @@ pub struct SAdd {
 #[derive(Debug)]
 pub struct SMembers {
     key: String,
+    sort: bool,
 }
 
 #[derive(Debug)]

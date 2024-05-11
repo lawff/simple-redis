@@ -165,6 +165,20 @@ mod tests {
     }
 
     #[test]
+    fn test_hmget_from_resp_array() -> Result<()> {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"*4\r\n$5\r\nhmget\r\n$3\r\nmap\r\n$5\r\nhello\r\n$6\r\nhello1\r\n");
+
+        let frame = RespArray::decode(&mut buf)?;
+
+        let result: HMGet = frame.try_into()?;
+        assert_eq!(result.key, "map");
+        assert_eq!(result.fields, vec!["hello", "hello1"]);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_hgetall_from_resp_array() -> Result<()> {
         let mut buf = BytesMut::new();
         buf.extend_from_slice(b"*2\r\n$7\r\nhgetall\r\n$3\r\nmap\r\n");
@@ -193,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hset_hget_hgetall_commands() -> Result<()> {
+    fn test_hset_hget_hmget_hgetall_commands() -> Result<()> {
         let backend = crate::Backend::new();
         let cmd = HSet {
             key: "map".to_string(),
@@ -216,6 +230,20 @@ mod tests {
         };
         let result = cmd.execute(&backend);
         assert_eq!(result, RespFrame::BulkString(b"world".into()));
+
+        let cmd = HMGet {
+            key: "map".to_string(),
+            fields: vec!["hello".to_string(), "hello1".to_string()],
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(
+            result,
+            RespArray::new([
+                BulkString::from("world").into(),
+                BulkString::from("world1").into()
+            ])
+            .into()
+        );
 
         let cmd = HGetAll {
             key: "map".to_string(),

@@ -10,14 +10,24 @@ impl CommandExecutor for SAdd {
 
 impl CommandExecutor for SMembers {
     fn execute(self, backend: &Backend) -> RespFrame {
-        // TODO: 返回的顺序 通过 unit test
         match backend.smembers(&self.key) {
             Some(values) => {
                 let mut array = Vec::with_capacity(values.len());
                 for value in values.iter() {
-                    array.push(BulkString::from((*value).clone()).into());
+                    array.push((
+                        value.key().to_owned(),
+                        BulkString::from((*value).clone()).into(),
+                    ));
                 }
-                RespArray::new(array).into()
+                if self.sort {
+                    array.sort_by(|a, b| a.0.cmp(&b.0));
+                }
+                // 不需要返回 key
+                let ret = array
+                    .into_iter()
+                    .map(|(_, v)| v)
+                    .collect::<Vec<RespFrame>>();
+                RespArray::new(ret).into()
             }
             None => RespArray::new([]).into(),
         }
@@ -59,8 +69,71 @@ impl TryFrom<RespArray> for SMembers {
         match args.next() {
             Some(RespFrame::BulkString(key)) => Ok(SMembers {
                 key: String::from_utf8(key.0)?,
+                sort: false,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::RespDecode;
+    use anyhow::Result;
+    use bytes::BytesMut;
+
+    #[test]
+    fn test_sadd_from_resp_array() -> Result<()> {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"*3\r\n$4\r\nsadd\r\n$3\r\nkey\r\n$5\r\nhello\r\n");
+
+        let frame = RespArray::decode(&mut buf)?;
+        let ret: SAdd = frame.try_into()?;
+
+        assert_eq!(ret.key, "key");
+        assert_eq!(ret.values, vec!["hello"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_smembers_from_resp_array() -> Result<()> {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"*2\r\n$8\r\nsmembers\r\n$3\r\nkey\r\n");
+
+        let frame = RespArray::decode(&mut buf)?;
+        let ret: SMembers = frame.try_into()?;
+
+        assert_eq!(ret.key, "key");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sadd_smembers_commands() {
+        let backend = crate::Backend::new();
+        let sadd = SAdd {
+            key: "key".to_string(),
+            values: vec!["hello".to_string(), "world".to_string()],
+        };
+
+        let frame: RespFrame = sadd.execute(&backend);
+        let expected = RespFrame::Integer(2);
+
+        assert_eq!(frame, expected);
+
+        let smembers = SMembers {
+            key: "key".to_string(),
+            sort: true,
+        };
+        let frame: RespFrame = smembers.execute(&backend);
+        let expected = RespFrame::Array(RespArray::new(vec![
+            BulkString::from("hello").into(),
+            BulkString::from("world").into(),
+        ]));
+
+        assert_eq!(frame, expected)
     }
 }
