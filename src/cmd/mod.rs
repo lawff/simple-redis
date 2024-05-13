@@ -3,7 +3,7 @@ mod map;
 mod set;
 mod string;
 
-use crate::{Backend, RespArray, RespFrame, SimpleString};
+use crate::{Backend, BulkString, RespArray, RespFrame, SimpleString};
 use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
@@ -123,7 +123,7 @@ impl TryFrom<RespArray> for Command {
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         match value.first() {
-            Some(RespFrame::BulkString(ref cmd)) => match cmd.as_ref() {
+            Some(RespFrame::BulkString(ref cmd)) => match cmd.to_ascii_lowercase().as_slice() {
                 b"get" => Ok(Get::try_from(value)?.into()),
                 b"set" => Ok(Set::try_from(value)?.into()),
                 b"hget" => Ok(HGet::try_from(value)?.into()),
@@ -144,7 +144,8 @@ impl TryFrom<RespArray> for Command {
 
 impl CommandExecutor for Unrecognized {
     fn execute(self, _: &Backend) -> RespFrame {
-        RESP_OK.clone()
+        // RESP_OK.clone()
+        BulkString::from("Error: Unrecognized command").into()
     }
 }
 
@@ -206,7 +207,7 @@ mod tests {
     #[test]
     fn test_command() -> Result<()> {
         let mut buf = BytesMut::new();
-        buf.extend_from_slice(b"*2\r\n$3\r\nget\r\n$5\r\nhello\r\n");
+        buf.extend_from_slice(b"*2\r\n$3\r\nGET\r\n$5\r\nhello\r\n");
 
         let frame = RespArray::decode(&mut buf)?;
 
