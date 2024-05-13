@@ -3,7 +3,7 @@ mod map;
 mod set;
 mod string;
 
-use crate::{Backend, BulkString, RespArray, RespFrame, SimpleString};
+use crate::{Backend, RespArray, RespFrame, SimpleError, SimpleString};
 use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
@@ -145,7 +145,7 @@ impl TryFrom<RespArray> for Command {
 impl CommandExecutor for Unrecognized {
     fn execute(self, _: &Backend) -> RespFrame {
         // RESP_OK.clone()
-        BulkString::from("Error: Unrecognized command").into()
+        SimpleError::new("Unrecognized command").into()
     }
 }
 
